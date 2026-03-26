@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama LAN Chat</title>
+<script>
+/* ═══════════════════════════════════════════════
+   CONFIGURAZIONE — modifica questo blocco
+   ═══════════════════════════════════════════════ */
+const CONFIG = {
+  hostDefault:    'http://localhost:11434',  // IP del server Ollama, es. http://192.168.1.10:11434
+  modelloDefault: '',                        // lascia vuoto per selezionare automaticamente il primo modello disponibile
+  nomeBot:        'Assistente',              // etichetta sui messaggi AI
+  nomeUtente:     'Tu',                      // etichetta sui messaggi utente
+  systemPrompt:   '',                        // prompt di sistema predefinito (modificabile nell'interfaccia)
+  maxToken:       4096,                      // numero massimo di token per risposta
+  contestoMax:    8192,                      // num_ctx del modello — usato per la barra contesto
+};
+/* ═══════════════════════════════════════════════ */
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg:         #0c0c0c;
+  --bg2:        #111111;
+  --surface:    #161616;
+  --surface2:   #1c1c1c;
+  --border:     rgba(255,255,255,0.07);
+  --border2:    rgba(255,255,255,0.12);
+  --accent:     #c8ff00;
+  --accent2:    #a8d900;
+  --accent-dim: rgba(200,255,0,0.12);
+  --red:        #ff4444;
+  --orange:     #ff8c00;
+  --giallo:     #ffe033;
+  --text:       #e8e8e8;
+  --text2:      #888;
+  --text3:      #444;
+  --user-bg:    #111a00;
+  --user-border:#2a3800;
+  --ai-bg:      #0e0e0e;
+  --ai-border:  rgba(255,255,255,0.06);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --r: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* ── HEADER ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.app-logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  padding-right: 14px;
+  border-right: 1px solid var(--border2);
+}
+.app-logo span { color: var(--text2); font-weight: 400; }
+
+.cfg-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.cfg-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+input[type="text"], select {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 5px 8px;
+  border-radius: var(--r);
+  outline: none;
+  transition: border-color 0.15s;
+  height: 30px;
+}
+input[type="text"]:focus, select:focus { border-color: var(--accent); }
+#host-input { width: 200px; }
+#model-select { min-width: 140px; cursor: pointer; }
+#model-select option { background: var(--surface2); color: var(--text); }
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text3);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.status-dot.ok      { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.status-dot.err     { background: var(--red);    box-shadow: 0 0 6px var(--red); }
+.status-dot.pending { background: var(--orange); animation: lampeggia 0.7s infinite; }
+@keyframes lampeggia { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+#status-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+.hdr-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: var(--r);
+  transition: all 0.15s;
+  white-space: nowrap;
+  height: 30px;
+}
+.hdr-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ── DROPDOWN ESPORTA ── */
+.esporta-wrap {
+  position: relative;
+}
+
+.esporta-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  overflow: hidden;
+  z-index: 100;
+  min-width: 120px;
+}
+.esporta-menu.aperto { display: block; }
+
+.esporta-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  letter-spacing: 0.05em;
+}
+.esporta-menu button:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── TOKEN BUDGET BAR ── */
+.token-budget {
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tb-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tb-bar-wrap {
+  flex: 1;
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tb-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease, background 0.3s;
+}
+
+.tb-bar-fill.medio  { background: var(--giallo); }
+.tb-bar-fill.alto   { background: var(--orange); }
+.tb-bar-fill.pieno  { background: var(--red); }
+
+.tb-nums {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: right;
+}
+
+/* ── SYSTEM PROMPT PANEL ── */
+#sys-panel {
+  display: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: flex-start;
+}
+#sys-panel.aperto { display: flex; }
+
+.sys-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding-top: 8px;
+  white-space: nowrap;
+}
+
+#sys-prompt {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-left: 2px solid var(--orange);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: var(--r);
+  outline: none;
+  resize: vertical;
+  min-height: 52px;
+  transition: border-color 0.15s;
+  line-height: 1.6;
+}
+#sys-prompt:focus { border-color: var(--orange); }
+
+/* ── MESSAGGI ── */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scroll-behavior: smooth;
+}
+#messages::-webkit-scrollbar { width: 3px; }
+#messages::-webkit-scrollbar-track { background: transparent; }
+#messages::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+
+/* ── STATO VUOTO ── */
+#vuoto {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  padding-bottom: 60px;
+}
+.vuoto-icona {
+  width: 48px; height: 48px;
+  border: 1px solid var(--border2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.25;
+}
+.vuoto-icona svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 1.5; }
+#vuoto .vuoto-titolo {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+#vuoto .vuoto-sub { font-size: 12px; color: var(--text3); }
+
+/* ── MESSAGGIO ── */
+.msg {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.msg.user {
+  background: var(--user-bg);
+  border: 1px solid var(--user-border);
+  border-left: 2px solid var(--accent);
+}
+.msg.assistant {
+  background: var(--ai-bg);
+  border: 1px solid var(--ai-border);
+  border-left: 2px solid var(--border2);
+}
+.msg.errore {
+  background: #140808;
+  border: 1px solid #2a0f0f;
+  border-left: 2px solid var(--red);
+}
+
+.msg-ruolo {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-top: 3px;
+  flex-shrink: 0;
+  width: 60px;
+  color: var(--text3);
+}
+.msg.user .msg-ruolo   { color: var(--accent); }
+.msg.errore .msg-ruolo { color: var(--red); }
+
+.msg-testo {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.75;
+  flex: 1;
+  color: var(--text);
+  word-break: break-word;
+  min-width: 0;
+}
+
+/* Markdown */
+.msg-testo p              { margin-bottom: 0.6em; }
+.msg-testo p:last-child   { margin-bottom: 0; }
+.msg-testo strong         { font-weight: 600; color: #fff; }
+.msg-testo em             { font-style: italic; color: var(--text2); }
+.msg-testo code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.msg-testo pre {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.msg-testo pre code {
+  background: none; border: none; padding: 0;
+  font-size: 12px; color: var(--text);
+  display: block; line-height: 1.6;
+}
+.msg-testo ul, .msg-testo ol { padding-left: 1.4em; margin: 0.4em 0; }
+.msg-testo li { margin-bottom: 0.2em; }
+.msg-testo h1,.msg-testo h2,.msg-testo h3 {
+  font-weight: 600; color: #fff;
+  margin: 0.8em 0 0.3em; line-height: 1.3;
+}
+.msg-testo h1 { font-size: 1.2em; }
+.msg-testo h2 { font-size: 1.1em; }
+.msg-testo h3 { font-size: 1em; }
+.msg-testo hr { border: none; border-top: 1px solid var(--border2); margin: 0.8em 0; }
+
+/* Blocco ragionamento */
+.blocco-think {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--text3);
+  padding: 8px 10px;
+  border-radius: var(--r);
+  margin-bottom: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+.blocco-think:hover { border-color: var(--border2); }
+.th-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.th-toggle { color: var(--text3); font-size: 9px; transition: color 0.15s; }
+.blocco-think:hover .th-toggle { color: var(--accent); }
+.th-corpo {
+  display: none;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  color: var(--text3);
+  line-height: 1.6;
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.blocco-think.espanso .th-corpo { display: block; }
+
+/* Cursore */
+.cursore {
+  display: inline-block;
+  width: 7px; height: 14px;
+  background: var(--accent);
+  vertical-align: middle;
+  animation: lampeggia-cur 0.6s infinite;
+  margin-left: 2px;
+  border-radius: 1px;
+}
+@keyframes lampeggia-cur { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+/* Meta messaggio */
+.msg-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 8px;
+  letter-spacing: 0.05em;
+}
+
+/* ── FOOTER ── */
+.app-footer {
+  padding: 12px 16px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.input-riga { display: flex; gap: 8px; align-items: flex-end; }
+.input-wrap { flex: 1; }
+
+#user-input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--r);
+  outline: none;
+  resize: none;
+  min-height: 44px;
+  max-height: 160px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+  overflow-y: auto;
+}
+#user-input:focus { border-color: var(--accent); }
+#user-input::placeholder { color: var(--text3); font-size: 13px; }
+
+#btn-invia {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 18px;
+  background: var(--accent);
+  color: #0c0c0c;
+  border: none;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  height: 44px;
+}
+#btn-invia:hover  { background: var(--accent2); }
+#btn-invia:active { transform: scale(0.97); }
+#btn-invia:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+#btn-invia.stop {
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+#btn-invia.stop:hover { background: var(--red); color: #fff; }
+
+.footer-note {
+  margin-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+}
+.footer-note kbd {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text2);
+}
+#info-contesto { color: var(--text3); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .app-logo { display: none; }
+  #host-input { width: 130px; }
+  .cfg-label { display: none; }
+  #messages { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">ollama<span>-chat</span></div>
+
+  <div class="cfg-group">
+    <span class="cfg-label">Host</span>
+    <input type="text" id="host-input" placeholder="http://localhost:11434">
+
+    <span class="cfg-label">Modello</span>
+    <select id="model-select">
+      <option value="">— connetti prima —</option>
+    </select>
+
+    <button class="hdr-btn" onclick="connetti()">Connetti</button>
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">disconnesso</span>
+  </div>
+
+  <button class="hdr-btn" onclick="toggleSys()">Sistema</button>
+
+  <div class="esporta-wrap" id="esporta-wrap">
+    <button class="hdr-btn" onclick="toggleEsporta(event)">Esporta ▾</button>
+    <div class="esporta-menu" id="esporta-menu">
+      <button onclick="esporta('md')">Markdown (.md)</button>
+      <button onclick="esporta('txt')">Testo (.txt)</button>
+    </div>
+  </div>
+
+  <button class="hdr-btn" onclick="pulisci()">Pulisci</button>
+</header>
+
+<!-- TOKEN BUDGET BAR -->
+<div class="token-budget">
+  <span class="tb-label">Contesto</span>
+  <div class="tb-bar-wrap">
+    <div class="tb-bar-fill" id="tb-fill"></div>
+  </div>
+  <span class="tb-nums" id="tb-nums">0 / <?php /* verrà popolato via JS */ ?>0 token</span>
+</div>
+
+<div id="sys-panel">
+  <span class="sys-label">Sistema</span>
+  <textarea id="sys-prompt" rows="2" placeholder="Prompt di sistema opzionale — definisci il comportamento dell'assistente..."></textarea>
+</div>
+
+<div id="messages">
+  <div id="vuoto">
+    <div class="vuoto-icona">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4M12 8h.01"/>
+      </svg>
+    </div>
+    <div class="vuoto-titolo">Nessun messaggio</div>
+    <div class="vuoto-sub">Connetti a un host Ollama e inizia a chattare</div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <div class="input-riga">
+    <div class="input-wrap">
+      <textarea id="user-input" rows="1" placeholder="Scrivi un messaggio…"></textarea>
+    </div>
+    <button id="btn-invia" onclick="inviaMess()">Invia</button>
+  </div>
+  <div class="footer-note">
+    <span><kbd>Enter</kbd> invia &nbsp; <kbd>Shift+Enter</kbd> nuova riga</span>
+    <span id="info-contesto"></span>
+  </div>
+</footer>
+
+<script>
+// ── Init CONFIG ──
+document.getElementById('host-input').value = CONFIG.hostDefault;
+document.getElementById('sys-prompt').value  = CONFIG.systemPrompt;
+document.getElementById('tb-nums').textContent = `0 / ${CONFIG.contestoMax} token`;
+
+// ── Stato ──
+let cronologia   = [];
+let streaming    = false;
+let abortCtrl    = null;
+let tokenTotali  = 0;
+
+// ── DOM ──
+const msgEl       = document.getElementById('messages');
+const vuotoEl     = document.getElementById('vuoto');
+const inputEl     = document.getElementById('user-input');
+const btnInvia    = document.getElementById('btn-invia');
+const hostEl      = document.getElementById('host-input');
+const modeloEl    = document.getElementById('model-select');
+const dotEl       = document.getElementById('status-dot');
+const statusEl    = document.getElementById('status-text');
+const infoCtx     = document.getElementById('info-contesto');
+const sysPromptEl = document.getElementById('sys-prompt');
+const sysPanelEl  = document.getElementById('sys-panel');
+const tbFill      = document.getElementById('tb-fill');
+const tbNums      = document.getElementById('tb-nums');
+
+// ── Helpers ──
+function getHost()    { return hostEl.value.trim().replace(/\/$/, ''); }
+function getModello() { return modeloEl.value || CONFIG.modelloDefault; }
+
+function setStato(stato, testo) {
+  dotEl.className    = 'status-dot ' + stato;
+  statusEl.textContent = testo;
+}
+
+function mostraVuoto(v) {
+  vuotoEl.style.display = v ? 'flex' : 'none';
+}
+
+function aggiornaBudget(tokenUsati) {
+  const max  = CONFIG.contestoMax;
+  const pct  = Math.min(100, Math.round((tokenUsati / max) * 100));
+  tbFill.style.width = pct + '%';
+  tbFill.className   = 'tb-bar-fill' +
+    (pct >= 90 ? ' pieno' : pct >= 70 ? ' alto' : pct >= 45 ? ' medio' : '');
+  tbNums.textContent = `${tokenUsati.toLocaleString('it')} / ${max.toLocaleString('it')} token (${pct}%)`;
+}
+
+// ── Auto-resize textarea ──
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+});
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!streaming) inviaMess();
+  }
+});
+
+// ── Connessione ──
+async function connetti() {
+  setStato('pending', 'connessione…');
+  try {
+    const r = await fetch(`${getHost()}/api/tags`, {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data   = await r.json();
+    const modelli = data.models || [];
+
+    modeloEl.innerHTML = '';
+    if (modelli.length === 0) {
+      modeloEl.innerHTML = '<option value="">nessun modello trovato</option>';
+    } else {
+      modelli.forEach(m => {
+        const opt      = document.createElement('option');
+        opt.value      = m.name;
+        opt.textContent = m.name;
+        if (m.name === CONFIG.modelloDefault) opt.selected = true;
+        modeloEl.appendChild(opt);
+      });
+      if (!modeloEl.value) modeloEl.selectedIndex = 0;
+    }
+
+    setStato('ok', `connesso — ${modelli.length} modell${modelli.length !== 1 ? 'i' : 'o'}`);
+  } catch(e) {
+    setStato('err', 'connessione fallita — ' + e.message);
+    modeloEl.innerHTML = '<option value="">— connetti prima —</option>';
+  }
+}
+
+// ── Markdown (senza librerie) ──
+function renderMd(testo) {
+  let s = testo
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, codice) =>
+    `<pre><code class="lang-${lang}">${codice.trim()}</code></pre>`);
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  s = s.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
+  s = s.replace(/\*(.+?)\*/g,         '<em>$1</em>');
+  s = s.replace(/^---$/gm, '<hr>');
+  s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, m => {
+    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /, '')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+  s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, m => {
+    const items = m.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*\d+\. /, '')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+
+  const blockTag = /^<(h[1-3]|ul|ol|li|pre|hr)/;
+  const righe = s.split('\n');
+  const out   = [];
+  let i = 0;
+  while (i < righe.length) {
+    const r = righe[i];
+    if (r.trim() === '') { i++; continue; }
+    if (blockTag.test(r.trim())) { out.push(r); i++; continue; }
+    const para = [];
+    while (i < righe.length && righe[i].trim() !== '' && !blockTag.test(righe[i].trim())) {
+      para.push(righe[i++]);
+    }
+    out.push(`<p>${para.join('<br>')}</p>`);
+  }
+  return out.join('\n');
+}
+
+// ── Render contenuto con think ──
+function renderContenuto(el, testo, thinkTesto, thinkDiv, inCorso) {
+  el.innerHTML = '';
+  if (thinkDiv) {
+    el.appendChild(thinkDiv);
+    const corpo = thinkDiv.querySelector('.th-corpo');
+    if (corpo) corpo.textContent = thinkTesto;
+  }
+  const div = document.createElement('div');
+  div.innerHTML = renderMd(testo);
+  el.appendChild(div);
+  if (inCorso) {
+    const cur = document.createElement('span');
+    cur.className = 'cursore';
+    el.appendChild(cur);
+  }
+}
+
+// ── Invia messaggio ──
+async function inviaMess() {
+  const testo = inputEl.value.trim();
+  if (!testo || streaming) return;
+  if (!getModello()) { setStato('err', 'nessun modello selezionato'); return; }
+
+  mostraVuoto(false);
+  streaming = true;
+  btnInvia.textContent = 'Interrompi';
+  btnInvia.classList.add('stop');
+  btnInvia.onclick = interrompi;
+
+  cronologia.push({ role: 'user', content: testo });
+
+  // Messaggio utente
+  const divUtente = document.createElement('div');
+  divUtente.className = 'msg user';
+  divUtente.innerHTML = `<span class="msg-ruolo">${CONFIG.nomeUtente}</span><span class="msg-testo"></span>`;
+  msgEl.appendChild(divUtente);
+  divUtente.querySelector('.msg-testo').innerHTML = renderMd(testo);
+
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  // Costruisce array messaggi
+  const messaggi = [];
+  const sys = sysPromptEl.value.trim();
+  if (sys) messaggi.push({ role: 'system', content: sys });
+  messaggi.push(...cronologia);
+
+  // Contenitore risposta AI
+  const divAI = document.createElement('div');
+  divAI.className = 'msg assistant';
+  divAI.innerHTML = `<span class="msg-ruolo">${CONFIG.nomeBot}</span><span class="msg-testo"><span class="cursore"></span></span>`;
+  msgEl.appendChild(divAI);
+  const testoEl = divAI.querySelector('.msg-testo');
+  msgEl.scrollTop = msgEl.scrollHeight;
+
+  let testoCompleto = '';
+  let thinkTesto    = '';
+  let inThink       = false;
+  let thinkDiv      = null;
+  const inizio      = Date.now();
+
+  abortCtrl = new AbortController();
+
+  try {
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal:  abortCtrl.signal,
+      body: JSON.stringify({
+        model:   getModello(),
+        messages: messaggi,
+        stream:  true,
+        options: { num_predict: CONFIG.maxToken }
+      })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+    let tokContati = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = dec.decode(value, { stream: true });
+      const righe = chunk.split('\n').filter(l => l.trim());
+
+      for (const riga of righe) {
+        let obj;
+        try { obj = JSON.parse(riga); } catch { continue; }
+
+        const delta = obj?.message?.content ?? '';
+        if (!delta) continue;
+
+        // Parser <think>
+        let resto = delta;
+        while (resto) {
+          if (!inThink) {
+            const inizio_t = resto.indexOf('<think>');
+            if (inizio_t !== -1) {
+              const prima = resto.slice(0, inizio_t);
+              if (prima) testoCompleto += prima;
+              inThink = true;
+              resto   = resto.slice(inizio_t + 7);
+              thinkDiv = document.createElement('div');
+              thinkDiv.className = 'blocco-think';
+              thinkDiv.innerHTML = `<div class="th-header"><span>Ragionamento…</span><span class="th-toggle">▸ espandi</span></div><div class="th-corpo"></div>`;
+              thinkDiv.addEventListener('click', () => {
+                thinkDiv.classList.toggle('espanso');
+                thinkDiv.querySelector('.th-toggle').textContent =
+                  thinkDiv.classList.contains('espanso') ? '▾ riduci' : '▸ espandi';
+              });
+            } else {
+              testoCompleto += resto;
+              resto = '';
+            }
+          } else {
+            const fine_t = resto.indexOf('</think>');
+            if (fine_t !== -1) {
+              thinkTesto += resto.slice(0, fine_t);
+              inThink     = false;
+              resto        = resto.slice(fine_t + 8);
+              if (thinkDiv) {
+                thinkDiv.querySelector('.th-header span:first-child').textContent = 'Ragionamento';
+              }
+            } else {
+              thinkTesto += resto;
+              resto = '';
+            }
+          }
+        }
+
+        renderContenuto(testoEl, testoCompleto, thinkTesto, thinkDiv, !obj.done);
+
+        if (obj.eval_count) {
+          tokContati = obj.eval_count;
+          aggiornaBudget(tokContati);
+        }
+        msgEl.scrollTop = msgEl.scrollHeight;
+      }
+    }
+
+    // Render finale senza cursore
+    renderContenuto(testoEl, testoCompleto, thinkTesto, thinkDiv, false);
+
+    const elapsed = ((Date.now() - inizio) / 1000).toFixed(1);
+    const tps     = tokContati && elapsed > 0
+      ? (tokContati / parseFloat(elapsed)).toFixed(0) : '—';
+
+    const meta = document.createElement('div');
+    meta.className   = 'msg-meta';
+    meta.textContent = `${tokContati} token · ${elapsed}s · ${tps} tok/s`;
+    divAI.appendChild(meta);
+
+    tokenTotali += tokContati;
+    cronologia.push({ role: 'assistant', content: testoCompleto });
+    aggiornaBudget(tokenTotali);
+    infoCtx.textContent = `sessione: ${tokenTotali.toLocaleString('it')} token`;
+
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      renderContenuto(testoEl, testoCompleto || '// trasmissione interrotta', thinkTesto, thinkDiv, false);
+      if (testoCompleto) cronologia.push({ role: 'assistant', content: testoCompleto });
+    } else {
+      divAI.className = 'msg errore';
+      divAI.querySelector('.msg-ruolo').textContent = 'Errore';
+      testoEl.textContent = e.message;
+      setStato('err', 'richiesta fallita');
+      cronologia.pop();
+    }
+  }
+
+  streaming = false;
+  btnInvia.textContent = 'Invia';
+  btnInvia.classList.remove('stop');
+  btnInvia.onclick = inviaMess;
+  abortCtrl = null;
+}
+
+function interrompi() {
+  if (abortCtrl) abortCtrl.abort();
+}
+
+function pulisci() {
+  cronologia  = [];
+  tokenTotali = 0;
+  msgEl.innerHTML = '';
+  msgEl.appendChild(vuotoEl);
+  mostraVuoto(true);
+  infoCtx.textContent = '';
+  aggiornaBudget(0);
+}
+
+function toggleSys() {
+  sysPanelEl.classList.toggle('aperto');
+}
+
+// ── Esporta dropdown ──
+function toggleEsporta(e) {
+  e.stopPropagation();
+  document.getElementById('esporta-menu').classList.toggle('aperto');
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('esporta-menu').classList.remove('aperto');
+});
+
+function esporta(formato) {
+  document.getElementById('esporta-menu').classList.remove('aperto');
+
+  if (cronologia.length === 0) {
+    alert('Nessun messaggio da esportare.');
+    return;
+  }
+
+  const data = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+  const modello = getModello() || 'sconosciuto';
+
+  let contenuto = '';
+
+  if (formato === 'md') {
+    contenuto += `# Conversazione Ollama\n`;
+    contenuto += `**Data:** ${new Date().toLocaleString('it-IT')}  \n`;
+    contenuto += `**Modello:** ${modello}  \n`;
+    const sys = sysPromptEl.value.trim();
+    if (sys) contenuto += `**Prompt sistema:** ${sys}  \n`;
+    contenuto += `\n---\n\n`;
+    cronologia.forEach(m => {
+      const etichetta = m.role === 'user' ? `**${CONFIG.nomeUtente}**` : `**${CONFIG.nomeBot}**`;
+      contenuto += `${etichetta}\n\n${m.content}\n\n---\n\n`;
+    });
+  } else {
+    contenuto += `CONVERSAZIONE OLLAMA\n`;
+    contenuto += `Data: ${new Date().toLocaleString('it-IT')}\n`;
+    contenuto += `Modello: ${modello}\n`;
+    const sys = sysPromptEl.value.trim();
+    if (sys) contenuto += `Prompt sistema: ${sys}\n`;
+    contenuto += `${'─'.repeat(50)}\n\n`;
+    cronologia.forEach(m => {
+      const etichetta = m.role === 'user' ? CONFIG.nomeUtente.toUpperCase() : CONFIG.nomeBot.toUpperCase();
+      contenuto += `[${etichetta}]\n${m.content}\n\n${'─'.repeat(50)}\n\n`;
+    });
+  }
+
+  const blob = new Blob([contenuto], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ollama-chat_${data}.${formato}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Avvio ──
+connetti();
+</script>
+</body>
+</html>
