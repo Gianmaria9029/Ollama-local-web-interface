@@ -21,14 +21,14 @@ Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata
 ## Screenshot
 
 ### EVA Standard Interface (versione neutra)
-![EVA Standard Interface](assets/eva_standard-interface.png)
+![EVA Standard Interface](assets/eva_standard-interface.jpg)
 
 Interfaccia pulita, stile tech neutro, pensata per utilizzo generale, demo e ambienti aziendali.
 
 ---
 
 ### EVA01 Interface (tema Evangelion)
-![EVA01 Interface](assets/eva01-interface.png)
+![EVA01 Interface](assets/eva01-interface.jpg)
 
 Versione originale del progetto, ispirata a Evangelion (Unità 01), con UI più caratterizzata e immersiva.
 
