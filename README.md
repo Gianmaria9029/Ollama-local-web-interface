@@ -21,7 +21,7 @@ Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata
 ## Screenshot
 
 ### EVA Standard Interface (versione neutra)
-![EVA Standard Interface](assets/standard-interface.png)
+![EVA Standard Interface](assets/eva_standard-interface.png)
 
 Interfaccia pulita, stile tech neutro, pensata per utilizzo generale, demo e ambienti aziendali.
 
