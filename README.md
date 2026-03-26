@@ -1,5 +1,4 @@
-# EVA01 Local UI
-
+# EVA01 - Interfaccia Grafica per Ollama
 ![Version](https://img.shields.io/badge/version-0.1-6a00ff)
 ![Status](https://img.shields.io/badge/status-active-00ff88)
 ![License](https://img.shields.io/badge/license-MIT-2b2b2b)
