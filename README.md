@@ -51,7 +51,7 @@ Versione originale del progetto, ispirata a Evangelion (Unità 01), con UI più 
 
 ## Avvio
 1. Avvia Ollama  
-2. Apri `index.html`  
+2. Apri `EVA_Standard_Interface.html`  
 3. Imposta host (default: localhost)  
 4. Seleziona modello  
 5. Inizia la chat  
