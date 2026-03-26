@@ -44,9 +44,8 @@ Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata
 ---
 
 ## Limitazioni
-- Nessuna autenticazione  
-- Uso locale o LAN  
-- Non progettato per multiutente  
+- Nessuna autenticazione ma facilmente implementabile
+- Uso locale o LAN
 
 ---
 
