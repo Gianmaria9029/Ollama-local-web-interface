@@ -8,13 +8,13 @@
 ---
 
 ## Descrizione
-EVA01 Local UI è una interfaccia web leggera per usare modelli AI locali tramite Ollama, ispirata a Neon Genesis Evangelion, uno dei miei anime preferiti.
+EVA01 Local UI è una interfaccia web leggera per usare modelli AI locali tramite Ollama, ispirata a Neon Genesis Evangelion [ fanboy alert ] ⚡🟣
 
 Nasce dal fatto che volevo un’esperienza di AI locale davvero personalizzata, costruita su misura per come volevo usarla io.
 
 Da lì ho creato anche una versione più neutra (EVA_Standard_Interface), con grafica tech e pulita, pensata per essere condivisa e adattabile.
 
-Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata all’Unità 01, da cui è nato tutto il progetto.
+Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata all’Unità 01 🟢, da cui è nato tutto il progetto.
 
 ---
 
@@ -44,8 +44,9 @@ Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata
 ---
 
 ## Limitazioni
-- Nessuna autenticazione ma facilmente implementabile
-- Uso locale o LAN
+- Nessuna autenticazione  
+- Uso locale o LAN  
+- Non progettato per multiutente  
 
 ---
 
@@ -55,4 +56,5 @@ Progetto sviluppato per utilizzo reale in ambito didattico e demo aziendali.
 ---
 
 ## Autore
-Gianmaria Gori
+Gianmaria Gori  
+[LinkedIn](https://www.linkedin.com/)
