@@ -20,7 +20,7 @@ Insieme a quella, rilascio anche la versione originale EVA01_Interface, ispirata
 ## Screenshot
 
 ### EVA Standard Interface (versione neutra)
-![EVA Standard Interface](/assets/ollamainterface.gif)
+![EVA Standard Interface](/assets/ollamaInterface.gif)
 
 Interfaccia pulita, stile tech neutro, pensata per utilizzo generale, demo e ambienti aziendali.
 
